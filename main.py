@@ -36,8 +36,8 @@ class TabooGame:
         self._initialize_api_client()
         
         # Load system prompts
-        self.system_prompt = self._load_prompt("system_prompt.txt")
-        self.system_prompt_2 = self._load_prompt("system_prompt_2.txt")
+        self.system_prompt_wordgen = self._load_prompt("system_prompt_wordgen.txt")
+        self.system_prompt_hintgen = self._load_prompt("system_prompt_hintgen.txt")
         
         # Game state
         self.current_word: Optional[str] = None
@@ -69,7 +69,7 @@ class TabooGame:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": self.system_prompt},
+                    {"role": "system", "content": self.system_prompt_wordgen},
                     {"role": "user", "content": json.dumps(config.__dict__)}
                 ],
                 temperature=1,
@@ -95,7 +95,7 @@ class TabooGame:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": self.system_prompt_2},
+                    {"role": "system", "content": self.system_prompt_hintgen},
                     {"role": "user", "content": json.dumps(request_props)}
                 ],
                 response_format={"type": "json_object"},
