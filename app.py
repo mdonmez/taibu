@@ -1,14 +1,12 @@
+from flask import Flask, request, jsonify, render_template
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 import os
 import json
 from openai import OpenAI
 from dotenv import load_dotenv
-import textwrap
-from colorama import init, Fore, Style
 
-# Initialize colorama for cross-platform colored output
-init()
+app = Flask(__name__)
 
 @dataclass
 class GameConfig:
@@ -31,14 +29,14 @@ class TabooGame:
     def __init__(self):
         """Initialize the TabooGame with API configurations and prompts"""
         load_dotenv()
-        
+
         # Initialize OpenAI client
         self._initialize_api_client()
-        
+
         # Load system prompts
         self.system_prompt_wordgen = self._load_prompt("system_prompts/system_prompt_wordgen.txt")
         self.system_prompt_hintgen = self._load_prompt("system_prompts/system_prompt_hintgen.txt")
-        
+
         # Game state
         self.current_word: Optional[str] = None
         self.attempts: int = 0
@@ -101,7 +99,7 @@ class TabooGame:
                 response_format={"type": "json_object"},
                 temperature=1,
             )
-            
+
             content = response.choices[0].message.content
             try:
                 parsed_content = json.loads(content)
@@ -127,90 +125,37 @@ class TabooGame:
         except Exception as e:
             raise TabooGameException(f"Failed to generate hint: {str(e)}")
 
-class GameUI:
-    """Handle game user interface and interactions"""
-    
-    @staticmethod
-    def display_welcome() -> None:
-        """Display welcome message and game instructions"""
-        print(f"\n{Fore.CYAN}Welcome to Taboo Game!{Style.RESET_ALL}")
-        print(textwrap.dedent("""
-            Try to guess the secret word based on the hints provided.
-            The hints will try to describe the word without using certain taboo terms.
-            You have 5 attempts to guess correctly!
-        """))
+game = TabooGame()
 
-    @staticmethod
-    def display_hint(hint: str, attempt: int, max_attempts: int) -> None:
-        """Display the current hint and attempt count"""
-        print(f"\n{Fore.YELLOW}Hint #{attempt}/{max_attempts}:{Style.RESET_ALL}")
-        # Clean up the hint text
-        hint = hint.strip()
-        if hint.startswith('"') and hint.endswith('"'):
-            hint = hint[1:-1]
-        # Capitalize first letter and add period if missing
-        hint = hint[0].upper() + hint[1:]
-        if not hint.endswith(('.', '!', '?')):
-            hint += '.'
-        print(textwrap.fill(hint, width=70))
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-    @staticmethod
-    def get_guess() -> str:
-        """Get user's guess input"""
-        return input(f"\n{Fore.GREEN}Enter your guess: {Style.RESET_ALL}").strip().lower()
-
-    @staticmethod
-    def display_game_over(won: bool, word: str, attempts: int) -> None:
-        """Display game over message"""
-        if won:
-            print(f"\n{Fore.GREEN}Congratulations! You guessed the word '{word}' in {attempts} attempts!{Style.RESET_ALL}")
-        else:
-            print(f"\n{Fore.RED}Game Over! The word was '{word}'{Style.RESET_ALL}")
-
-def main():
-    """Main game loop"""
-    game = TabooGame()
-    ui = GameUI()
-    
+@app.route('/game', methods=['POST'])
+def start_game():
     try:
-        ui.display_welcome()
-        
-        # Initialize game with configuration
+        data = request.json
         config = GameConfig(
-            topic="sports",
-            difficulty="easy",
-            language="english"
+            topic=data.get('topic'),
+            difficulty=data.get('difficulty'),
+            language=data.get('language')
         )
-        
-        # Generate initial taboo word and properties
         taboo_props = game.generate_taboo(config)
-        previous_guesses: List[WrongGuess] = []
-        
-        while game.attempts < game.max_attempts:
-            game.attempts += 1
-            
-            # Generate and display hint
-            hint = game.generate_hint(taboo_props, previous_guesses)
-            ui.display_hint(hint, game.attempts, game.max_attempts)
-            
-            # Get and process user's guess
-            guess = ui.get_guess()
-            
-            if guess == game.current_word:
-                ui.display_game_over(won=True, word=game.current_word, attempts=game.attempts)
-                break
-            
-            # Store wrong guess
-            previous_guesses.append(WrongGuess(predict=guess, sentence=hint))
-            
-            # Check if last attempt
-            if game.attempts == game.max_attempts:
-                ui.display_game_over(won=False, word=game.current_word, attempts=game.attempts)
-
+        return jsonify(taboo_props)
     except TabooGameException as e:
-        print(f"\n{Fore.RED}Game Error: {str(e)}{Style.RESET_ALL}")
-    except KeyboardInterrupt:
-        print(f"\n{Fore.YELLOW}Game terminated by user.{Style.RESET_ALL}")
+        return jsonify({"error": str(e)}), 400
 
-if __name__ == "__main__":
-    main()
+@app.route('/hints', methods=['POST'])
+def get_hint():
+    try:
+        data = request.json
+        props = data.get('props')
+        previous_guesses = data.get('previous_guesses', [])
+        previous_guesses = [WrongGuess(**guess) for guess in previous_guesses]
+        hint = game.generate_hint(props, previous_guesses)
+        return jsonify({"hint": hint})
+    except TabooGameException as e:
+        return jsonify({"error": str(e)}), 400
+
+if __name__ == '__main__':
+    app.run(debug=True)
