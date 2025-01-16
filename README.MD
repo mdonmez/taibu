@@ -78,3 +78,6 @@ Also there is main.py file for running app without web interface, instead using 
 
 ## License
 This project is licensed under the MIT License - See [LICENSE](LICENSE) for details.
+
+## Notes
+I mostly used AI to make this game.
