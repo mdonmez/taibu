@@ -5,6 +5,7 @@ import os
 import json
 from openai import OpenAI
 from dotenv import load_dotenv
+import difflib
 
 app = Flask(__name__)
 
@@ -124,6 +125,9 @@ class TabooGame:
                 return content
         except Exception as e:
             raise TabooGameException(f"Failed to generate hint: {str(e)}")
+
+    def check_similarity(self, guess, word):
+        return difflib.SequenceMatcher(None, guess.lower(), word.lower()).ratio()
 
 game = TabooGame()
 

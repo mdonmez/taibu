@@ -109,7 +109,8 @@ class TabooGame {
 
         try {
             this.currentAttempt++;
-            if (guess.toLowerCase() === this.gameProps.word.toLowerCase()) {
+            const similarity = this.checkSimilarity(guess, this.gameProps.word);
+            if (similarity > 0.8) {
                 this.showResult(true);
             } else {
                 this.previousGuesses.push({
@@ -132,6 +133,35 @@ class TabooGame {
         } finally {
             document.getElementById('guess-input').disabled = false;
         }
+    }
+
+    checkSimilarity(str1, str2) {
+        const str1Lower = str1.toLowerCase();
+        const str2Lower = str2.toLowerCase();
+        const edits = this.levenshteinDistance(str1Lower, str2Lower);
+        const maxLength = Math.max(str1Lower.length, str2Lower.length);
+        return 1 - (edits / maxLength);
+    }
+
+    levenshteinDistance(a, b) {
+        const matrix = [];
+        for (let i = 0; i <= a.length; i++) {
+            matrix[i] = [i];
+        }
+        for (let j = 0; j <= b.length; j++) {
+            matrix[0][j] = j;
+        }
+        for (let i = 1; i <= a.length; i++) {
+            for (let j = 1; j <= b.length; j++) {
+                const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j - 1] + cost
+                );
+            }
+        }
+        return matrix[a.length][b.length];
     }
 
     updateGameInfo(difficulty, topic) {
