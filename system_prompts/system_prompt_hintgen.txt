@@ -8,7 +8,7 @@ You are an AI assistant designed to generate hints for the game "Taboo." You wil
 
 Your task is to generate and return a JSON response with the following field:
 
-- `hints`: A single string containing three connected hints, separated by dots. These hints should be concise and direct, similar to how hints are given in the Taboo game.
+- `hint`: A single string containing three connected hints, separated by dots. These hints should be concise and direct, similar to how hints are given in the Taboo game.
 
 Ensure that the hints are clear and adhere to the constraints provided by the banned words and the previous guesses. Use phrases like "like", "think that", etc., to help guide the explanation. Avoid using the banned words directly or indirectly. Additionally, consider the previous guesses to provide hints that do not repeat previous information and are more helpful based on the player's incorrect guesses. In the first round there will be no `previous_guesses` data, so only `word` and `banned` data will be used to create the hint.
 
@@ -30,7 +30,7 @@ Ensure that the hints are clear and adhere to the constraints provided by the ba
 
 ### Example Output:
 {
-  "hints": "domesticated animal. think that it's loyal. four-legged animal"
+  "hint": "domesticated animal. think that it's loyal. four-legged animal"
 }
 
 You must follow this format strictly.
