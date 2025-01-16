@@ -81,7 +81,7 @@ button:hover {
 button.unclickable {
     cursor: not-allowed;
     filter: grayscale(1);
-    pointer-events: auto;
+    pointer-events: none;
     background: #333333;
     opacity: 0.6;
 }
