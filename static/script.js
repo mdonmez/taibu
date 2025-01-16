@@ -18,7 +18,8 @@ class TabooGame {
         const startButton = document.getElementById('start-game');
 
         const updateButtonState = () => {
-            if (difficultySelect.value === '') {
+            const topicInput = document.getElementById('topic').value;
+            if (difficultySelect.value === '' || !topicInput.trim()) {
                 startButton.classList.add('unclickable');
             } else {
                 startButton.classList.remove('unclickable');
@@ -31,7 +32,13 @@ class TabooGame {
 
     async startGame() {
         const difficulty = document.getElementById('difficulty').value;
+        if (!difficulty) {
+          return;
+        }
         const topic = document.getElementById('topic').value;
+        if (!topic || !topic.trim()) {
+            return;
+        }
 
         this.showLoader();
         document.getElementById('start-game').disabled = true;
@@ -246,6 +253,18 @@ class TabooGame {
     }
 }
 
+
 document.addEventListener('DOMContentLoaded', () => {
-    new TabooGame();
+   const difficultySelect = document.getElementById('difficulty');
+   const startButton = document.getElementById('start-game');
+
+   const updateButtonState = () => {
+     if (difficultySelect.value === '') {
+         startButton.classList.add('unclickable');
+     } else {
+         startButton.classList.remove('unclickable');
+     }
+   };
+   updateButtonState();
+   new TabooGame();
 });
