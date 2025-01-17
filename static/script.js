@@ -1,15 +1,20 @@
+const SIMILARITY_THRESHOLD = 0.8;
+const HINT_FADE_DURATION = 300;
+const MAX_ATTEMPTS = 5;
+const ERROR_MESSAGE_DURATION = 3000;
 class TabooGame {
     constructor() {
         this.setupEventListeners();
         this.currentAttempt = 0;
-        this.maxAttempts = 5;
+        this.maxAttempts = MAX_ATTEMPTS;
         this.previousGuesses = [];
         this.initializeGuessesList();
     }
 
     setupEventListeners() {
         document.getElementById('start-game').addEventListener('click', () => this.startGame());
-        document.getElementById('guess-input').addEventListener('keypress', (e) => {
+        const guessInput = document.getElementById('guess-input');
+        guessInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.makeGuess(e.target.value);
         });
         document.getElementById('replay').addEventListener('click', () => this.resetGame());
@@ -17,17 +22,23 @@ class TabooGame {
         const difficultySelect = document.getElementById('difficulty');
         const startButton = document.getElementById('start-game');
 
-        const updateButtonState = () => {
-            const topicInput = document.getElementById('topic').value;
-            if (difficultySelect.value === '' || !topicInput.trim()) {
-                startButton.classList.add('unclickable');
-            } else {
-                startButton.classList.remove('unclickable');
-            }
-        };
 
-        difficultySelect.addEventListener('change', updateButtonState);
-        updateButtonState();
+        difficultySelect.addEventListener('change', () => this.updateStartButtonState());
+        document.getElementById('topic').addEventListener('input', () => this.updateStartButtonState());
+
+        this.updateStartButtonState();
+    }
+
+    updateStartButtonState() {
+        const difficultySelect = document.getElementById('difficulty');
+        const startButton = document.getElementById('start-game');
+        const topicInput = document.getElementById('topic').value;
+
+        if (difficultySelect.value === '' || !topicInput.trim()) {
+            startButton.classList.add('unclickable');
+        } else {
+            startButton.classList.remove('unclickable');
+        }
     }
 
     async startGame() {
@@ -41,7 +52,7 @@ class TabooGame {
         }
 
         this.showLoader();
-        document.getElementById('start-game').disabled = true;
+
 
         try {
             const response = await fetch('/game', {
@@ -51,8 +62,7 @@ class TabooGame {
                 },
                 body: JSON.stringify({
                     difficulty,
-                    topic,
-                    language: 'english'
+                    topic
                 })
             });
 
@@ -64,12 +74,10 @@ class TabooGame {
                 this.hideLoader();
                 await this.getNewHint();
             } else {
-                alert('Error starting game: ' + data.error);
+                 this.showError('Error starting game: ' + data.error);
             }
         } catch (error) {
-            alert('Failed to start game: ' + error);
-        } finally {
-            document.getElementById('start-game').disabled = false;
+             this.showError('Failed to start game: ' + error);
         }
     }
 
@@ -93,17 +101,13 @@ class TabooGame {
             if (response.ok) {
                 const hintElement = document.getElementById('current-hint');
                 hintElement.textContent = data.hint;
-                hintElement.classList.add('hint-fade');
-                setTimeout(() => hintElement.classList.remove('hint-fade'), 300);
-
                 const hintBox = document.getElementById('hint-box');
                 hintBox.style.height = 'auto';
                 const newHeight = hintBox.scrollHeight;
-                hintBox.style.height = '0';
-                setTimeout(() => hintBox.style.height = `${newHeight}px`, 0);
+                hintBox.style.height = `${newHeight}px`;
             }
         } catch (error) {
-            alert('Failed to get hint: ' + error);
+             this.showError('Failed to get hint: ' + error);
         } finally {
             this.hideHintLoader();
         }
@@ -117,7 +121,7 @@ class TabooGame {
         try {
             this.currentAttempt++;
             const similarity = this.checkSimilarity(guess, this.gameProps.word);
-            if (similarity > 0.8) {
+            if (similarity > SIMILARITY_THRESHOLD) {
                 this.showResult(true);
             } else {
                 this.previousGuesses.push({
@@ -130,14 +134,17 @@ class TabooGame {
                 }
                 this.updateWrongGuessesList();
 
-                if (this.currentAttempt >= this.maxAttempts) {
+                if (this.currentAttempt >= MAX_ATTEMPTS) {
                     this.showResult(false);
                 } else {
                     await this.getNewHint();
                 }
             }
             document.getElementById('guess-input').value = '';
-        } finally {
+        }  catch (error) {
+             this.showError('Failed to make guess: ' + error);
+        }
+         finally {
             document.getElementById('guess-input').disabled = false;
         }
     }
@@ -151,24 +158,38 @@ class TabooGame {
     }
 
     levenshteinDistance(a, b) {
+        // base cases
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+
         const matrix = [];
-        for (let i = 0; i <= a.length; i++) {
+
+        // increment along the first column of each row
+        for (let i = 0; i <= b.length; i++) {
             matrix[i] = [i];
         }
-        for (let j = 0; j <= b.length; j++) {
+
+        // increment each column in the first row
+        for (let j = 0; j <= a.length; j++) {
             matrix[0][j] = j;
         }
-        for (let i = 1; i <= a.length; i++) {
-            for (let j = 1; j <= b.length; j++) {
-                const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-                matrix[i][j] = Math.min(
-                    matrix[i - 1][j] + 1,
-                    matrix[i][j - 1] + 1,
-                    matrix[i - 1][j - 1] + cost
-                );
+
+        // Fill in the rest of the matrix
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1]; // no cost
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1, // substitution
+                        matrix[i][j - 1] + 1,     // insertion
+                        matrix[i - 1][j] + 1      // deletion
+                    );
+                }
             }
         }
-        return matrix[a.length][b.length];
+
+        return matrix[b.length][a.length];
     }
 
     updateGameInfo(difficulty, topic) {
@@ -251,21 +272,16 @@ class TabooGame {
         const loader = document.getElementById('hint-loader');
         loader.style.display = 'none';
     }
+
+     showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('hidden');
+        setTimeout(() => errorDiv.classList.add('hidden'), ERROR_MESSAGE_DURATION);
+    }
 }
 
 
 document.addEventListener('DOMContentLoaded', () => {
-   const difficultySelect = document.getElementById('difficulty');
-   const startButton = document.getElementById('start-game');
-
-   const updateButtonState = () => {
-    const topicInput = document.getElementById('topic').value;
-     if (difficultySelect.value === '' || !topicInput.trim()) {
-         startButton.classList.add('unclickable');
-     } else {
-         startButton.classList.remove('unclickable');
-     }
-   };
-   updateButtonState();
    new TabooGame();
 });

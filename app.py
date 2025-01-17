@@ -1,3 +1,4 @@
+import logging
 from flask import Flask, request, jsonify, render_template
 from dataclasses import dataclass
 from typing import List, Dict, Optional
@@ -10,14 +11,14 @@ import difflib
 app = Flask(__name__)
 
 @dataclass
-class GameConfig:
+class game_config:
     """Configuration settings for the game"""
     topic: str
     difficulty: str
     language: str
 
 @dataclass
-class WrongGuess:
+class wrong_guess:
     """Structure for storing wrong guesses and their corresponding hints"""
     predict: str
     sentence: str
@@ -25,10 +26,15 @@ class WrongGuess:
 class TabooGameException(Exception):
     """Custom exception for TabooGame-specific errors"""
     pass
-
 class TabooGame:
     def __init__(self):
         """Initialize the TabooGame with API configurations and prompts"""
+        load_dotenv()
+        self.logger = logging.getLogger('taboo_game')
+        self.logger.setLevel(logging.DEBUG)
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        self.logger.addHandler(handler)
         load_dotenv()
 
         # Initialize OpenAI client
@@ -45,14 +51,21 @@ class TabooGame:
 
     def _initialize_api_client(self) -> None:
         """Initialize the OpenAI API client with environment variables"""
+        self.logger.info("Initializing OpenAI API client")
         api_key = os.getenv("API_KEY")
         base_url = os.getenv("BASE_URL")
         self.model = os.getenv("MODEL_NAME")
 
         if not all([api_key, base_url, self.model]):
-            raise TabooGameException("Missing required environment variables")
+            self.logger.error("Missing required environment variables: API_KEY, BASE_URL, and MODEL_NAME must be set.")
+            raise TabooGameException("Missing required environment variables: API_KEY, BASE_URL, and MODEL_NAME must be set.")
 
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        try:
+            self.client = OpenAI(api_key=api_key, base_url=base_url)
+            self.logger.info("OpenAI API client initialized successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize OpenAI API client: {str(e)}")
+            raise TabooGameException(f"Failed to initialize OpenAI API client: {str(e)}")
 
     def _load_prompt(self, filename: str) -> str:
         """Load and return content from a prompt file"""
@@ -62,8 +75,9 @@ class TabooGame:
         except FileNotFoundError:
             raise TabooGameException(f"Required prompt file {filename} not found")
 
-    def generate_taboo(self, config: GameConfig) -> Dict:
+    def generate_taboo(self, config: game_config) -> Dict:
         """Generate a new taboo word and its properties"""
+        self.logger.info(f"Generating taboo word with config: {config.__dict__}")
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -75,17 +89,21 @@ class TabooGame:
                 response_format={"type": "json_object"},
             )
             content = response.choices[0].message.content
+            self.logger.info(f"OpenAI API response: {content}")
             try:
                 parsed_content = json.loads(content)
                 self.current_word = parsed_content["word"].lower()
                 return parsed_content
             except (json.JSONDecodeError, KeyError) as e:
+                self.logger.error(f"Invalid taboo word response format: {str(e)}\nResponse: {content}")
                 raise TabooGameException(f"Invalid taboo word response format: {str(e)}\nResponse: {content}")
         except Exception as e:
-            raise TabooGameException(f"Failed to generate taboo word: {str(e)}")
+            self.logger.error(f"Failed to generate taboo word. OpenAI API error: {str(e)}")
+            raise TabooGameException(f"Failed to generate taboo word. OpenAI API error: {str(e)}")
 
-    def generate_hint(self, props: Dict, previous_guesses: Optional[List[WrongGuess]] = None) -> str:
+    def generate_hint(self, props: Dict, previous_guesses: Optional[List[wrong_guess]] = None) -> str:
         """Generate a new hint based on the word properties and previous guesses"""
+        self.logger.info(f"Generating hint with props: {props}, previous guesses: {previous_guesses}")
         try:
             request_props = props.copy()
             if previous_guesses:
@@ -102,16 +120,11 @@ class TabooGame:
             )
 
             content = response.choices[0].message.content
+            self.logger.info(f"OpenAI API response: {content}")
             try:
                 parsed_content = json.loads(content)
-                if isinstance(parsed_content, dict):
-                    # Try different possible keys where the hint might be
-                    for key in ["hints", "hint", "sentence"]:
-                        if key in parsed_content:
-                            return parsed_content[key]
-                    # If we found no known keys but it's a single-key dict, use that value
-                    if len(parsed_content) == 1:
-                        return next(iter(parsed_content.values()))
+                if isinstance(parsed_content, dict) and "hint" in parsed_content:
+                        return parsed_content["hint"]
                 return content  # Fallback to raw content
             except json.JSONDecodeError:
                 # Clean up raw string if it looks like JSON but couldn't be parsed
@@ -124,10 +137,13 @@ class TabooGame:
                         return match.group(1)
                 return content
         except Exception as e:
-            raise TabooGameException(f"Failed to generate hint: {str(e)}")
+            self.logger.error(f"Failed to generate hint. OpenAI API error: {str(e)}")
+            raise TabooGameException(f"Failed to generate hint. OpenAI API error: {str(e)}")
 
     def check_similarity(self, guess, word):
-        return difflib.SequenceMatcher(None, guess.lower(), word.lower()).ratio()
+        guess = guess.lower()
+        word = word.lower()
+        return difflib.SequenceMatcher(None, guess, word).ratio()
 
 game = TabooGame()
 
@@ -139,13 +155,13 @@ def index():
 def start_game():
     try:
         data = request.json
-        config = GameConfig(
+        config = game_config(
             topic=data.get('topic'),
             difficulty=data.get('difficulty'),
-            language=data.get('language')
+            language='english'
         )
-        taboo_props = game.generate_taboo(config)
-        return jsonify(taboo_props)
+        taboo_properties = game.generate_taboo(config)
+        return jsonify(taboo_properties)
     except TabooGameException as e:
         return jsonify({"error": str(e)}), 400
 
@@ -155,7 +171,7 @@ def get_hint():
         data = request.json
         props = data.get('props')
         previous_guesses = data.get('previous_guesses', [])
-        previous_guesses = [WrongGuess(**guess) for guess in previous_guesses]
+        previous_guesses = [wrong_guess(**guess) for guess in previous_guesses]
         hint = game.generate_hint(props, previous_guesses)
         return jsonify({"hint": hint})
     except TabooGameException as e:
