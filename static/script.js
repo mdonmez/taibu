@@ -127,41 +127,80 @@ class TabooGame {
 
     async makeGuess(guess) {
         if (!guess.trim()) return;
+    
 
         document.getElementById('guess-input').disabled = true;
 
         try {
-            this.currentAttempt++;
-            const similarity = this.checkSimilarity(guess, this.gameProps.word);
-            if (similarity > SIMILARITY_THRESHOLD) {
+             const similarity = this.checkSimilarity(guess, this.gameProps.word);
+             if (similarity > SIMILARITY_THRESHOLD) {
                 this.showResult(true);
-            } else {
-                this.previousGuesses.push({
-                    predict: guess,
-                    sentence: document.getElementById('current-hint').textContent
+             } else {
+                this.currentAttempt++;
+                const response = await fetch('/suggest', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        guess: guess,
+                        word: this.gameProps.word
+                    })
                 });
+                const data = await response.json();
+                if(response.ok) {
+                    if(data.suggestions && data.suggestions.length > 0) {
+                        this.showSuggestions(data.suggestions);
+                    } else {
+                          this.previousGuesses.push({
+                            predict: guess,
+                            sentence: document.getElementById('current-hint').textContent
+                        });
+                        if (this.currentAttempt === 1) {
+                            this.removeGuessesListPlaceholder();
+                        }
+                        this.updateWrongGuessesList();
+                         if (this.currentAttempt >= MAX_ATTEMPTS) {
+                            this.showResult(false);
+                        } else {
+                            await this.getNewHint();
+                        }
+                    }
 
-                if (this.currentAttempt === 1) {
-                    this.removeGuessesListPlaceholder();
-                }
-                this.updateWrongGuessesList();
-
-                if (this.currentAttempt >= MAX_ATTEMPTS) {
-                    this.showResult(false);
                 } else {
-                    await this.getNewHint();
+                      this.showError('Unable to get suggestions. Please try again.');
+                      console.error('Error getting suggestions:', data.error);
+                      this.previousGuesses.push({
+                            predict: guess,
+                            sentence: document.getElementById('current-hint').textContent
+                        });
+                        if (this.currentAttempt === 1) {
+                            this.removeGuessesListPlaceholder();
+                        }
+                        this.updateWrongGuessesList();
+                         if (this.currentAttempt >= MAX_ATTEMPTS) {
+                            this.showResult(false);
+                        } else {
+                            await this.getNewHint();
+                        }
                 }
-            }
-            document.getElementById('guess-input').value = '';
-        }  catch (error) {
-            console.error('Failed to make guess:', error);
-            this.showError('Failed to make guess: ' + error);
-        }
-         finally {
-            document.getElementById('guess-input').disabled = false;
-        }
-    }
 
+
+                }
+             } catch (error) {
+                 console.error('Failed to make guess:', error);
+                 this.showError('Failed to make guess: ' + error);
+             } finally {
+                 document.getElementById('guess-input').disabled = false;
+             }
+        }
+        
+        
+        showSuggestions(suggestions) {
+            if (suggestions && suggestions.length > 0) {
+                this.makeGuess(suggestions[0])
+            }
+        }
     checkSimilarity(str1, str2) {
         const str1Lower = str1.toLowerCase();
         const str2Lower = str2.toLowerCase();
@@ -266,6 +305,8 @@ class TabooGame {
         this.initializeGuessesList();
         this.clearTimer();
         document.getElementById('timer-display').textContent = 20;
+        document.getElementById('topic').value = '';
+        document.getElementById('guess-input').value = '';
     }
 
     initializeGuessesList() {

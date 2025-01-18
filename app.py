@@ -176,10 +176,6 @@ class TabooGame:
             self.logger.error(f"Failed to generate hint. OpenAI API error: {str(e)}")
             raise TabooGameException(f"Failed to generate hint. OpenAI API error: {str(e)}")
 
-    def check_similarity(self, guess, word):
-        guess = guess.lower()
-        word = word.lower()
-        return difflib.SequenceMatcher(None, guess, word).ratio()
 
 game = TabooGame()
 
@@ -259,6 +255,38 @@ def get_hint():
     except Exception as e:
         game.logger.error(f"Unexpected error: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500
+    
+@app.route('/suggest', methods=['POST'])
+def suggest_words():
+    game.logger.info("Route /suggest called")
+    try:
+        data = request.get_json()
+        game.logger.info(f"Request data: {data}")
+    except json.JSONDecodeError as e:
+        game.logger.error(f"JSON Decode Error: {e}")
+        return jsonify({"error": "Invalid JSON format"}), 400
+    
+    if not data:
+        game.logger.error("Request body is empty")
+        return jsonify({"error": "Request body is empty"}), 400
+
+    if not isinstance(data, dict):
+         game.logger.error(f"Request body is not a dictionary: {data}")
+         return jsonify({"error": "Request body must be a JSON object"}), 400
+
+    if not all(key in data for key in ['guess', 'word']):
+         game.logger.error(f"Missing required fields in request data: {data}")
+         return jsonify({"error": "Missing required fields: guess, word"}), 400
+    
+    try:
+        guess = data.get('guess')
+        word = data.get('word')
+        suggestions = difflib.get_close_matches(guess, [word], cutoff=0.6, n=5)
+        return jsonify({"suggestions": suggestions})
+    except Exception as e:
+        game.logger.error(f"Unexpected error: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)

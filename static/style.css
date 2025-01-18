@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400&display=swap');
+
 :root {
   --color-background: #050505;
   --color-tertiary: #141414;
@@ -15,7 +17,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Press Start 2P', monospace;
+    font-family: 'Fira Mono', monospace;
 }
 
 html {
@@ -161,6 +163,28 @@ button.unclickable {
     border-radius: 8px;
     padding: 1rem;
     background: var(--color-border);
+}
+
+.suggestions-box {
+    margin-top: 1rem;
+    border: 1px solid var(--color-hover);
+    border-radius: 8px;
+    padding: 1rem;
+    background: var(--color-border);
+    cursor: default;
+}
+
+.suggestions-box .suggestion {
+    cursor: pointer;
+    display: inline-block;
+    background-color: var(--color-secondary);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin: 0.2rem;
+}
+
+.suggestions-box .suggestion:hover {
+    background-color: var(--color-hover);
 }
 
 #guesses-list {

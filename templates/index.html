@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>taibu</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="static/style.css">
     <link rel="icon" type="image/svg+xml" href="static/favicon.svg">
 </head>
@@ -50,6 +49,7 @@
                 <input type="text" id="guess-input" placeholder="type guess and press enter">
             </div>
 
+            <div id="suggestions-box" class="suggestions-box hidden"></div>
             <div id="wrong-guesses">
                 <p>older wrong guesses:</p>
                 <ul id="guesses-list"></ul>
@@ -75,6 +75,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/spellchecker-js@2.5.1/dist/spellchecker.min.js"></script>
     <script src="static/script.js"></script>
 </body>
 </html>
