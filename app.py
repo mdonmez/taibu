@@ -1,13 +1,21 @@
 import logging
-from flask import Flask, request, jsonify, render_template
 from dataclasses import dataclass
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from typing import List, Dict, Optional
 import os
 import json
 from openai import OpenAI
 from dotenv import load_dotenv
 
-app = Flask(__name__)
+app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
 
 @dataclass
 class game_config:
@@ -16,15 +24,19 @@ class game_config:
     difficulty: str
     language: str
 
+
 @dataclass
 class wrong_guess:
     """Structure for storing wrong guesses and their corresponding hints"""
     predict: str
     sentence: str
 
+
 class TabooGameException(Exception):
     """Custom exception for TabooGame-specific errors"""
     pass
+
+
 class TabooGame:
     def __init__(self):
         """Initialize the TabooGame with API configurations and prompts"""
@@ -40,7 +52,7 @@ class TabooGame:
         self._initialize_api_client()
 
         # Load system prompts
-        self.system_prompt_wordgen =  self._load_prompt("system_prompts/system_prompt_wordgen.txt")
+        self.system_prompt_wordgen = self._load_prompt("system_prompts/system_prompt_wordgen.txt")
         self.system_prompt_hintgen = self._load_prompt("system_prompts/system_prompt_hintgen.txt")
         # Game state
         self.current_word: Optional[str] = None
@@ -106,8 +118,8 @@ class TabooGame:
             try:
                 parsed_content = json.loads(content)
                 if not isinstance(parsed_content, dict) or "word" not in parsed_content:
-                     self.logger.error(f"Invalid taboo word response format, missing 'word' key: {content}")
-                     raise TabooGameException(f"Invalid taboo word response format, missing 'word' key: {content}")
+                    self.logger.error(f"Invalid taboo word response format, missing 'word' key: {content}")
+                    raise TabooGameException(f"Invalid taboo word response format, missing 'word' key: {content}")
                 self.current_word = parsed_content["word"].lower()
                 banned_words = parsed_content.get("banned", [])
                 return {**parsed_content, "banned": banned_words}
@@ -124,16 +136,16 @@ class TabooGame:
         if not isinstance(props, dict):
             self.logger.error(f"Invalid input: props must be a dict, but got {type(props)}")
             raise TabooGameException("Invalid input: props must be a dict")
-        
+
         if previous_guesses and not isinstance(previous_guesses, list):
             self.logger.error(f"Invalid input: previous_guesses must be a list, but got {type(previous_guesses)}")
             raise TabooGameException("Invalid input: previous_guesses must be a list")
-        
+
         try:
             request_props = props.copy()
             if previous_guesses:
                 request_props["olderwrongs"] = [g.__dict__ for g in previous_guesses]
-            
+
             messages = [
                 {"role": "system", "content": self.system_prompt_hintgen},
                 {"role": "user", "content": json.dumps(request_props)}
@@ -153,13 +165,12 @@ class TabooGame:
                 self.logger.error("OpenAI API response has no choices")
                 raise TabooGameException("OpenAI API response has no choices")
 
-
             content = response.choices[0].message.content
             self.logger.info(f"OpenAI API response: {content}")
             try:
                 parsed_content = json.loads(content)
                 if isinstance(parsed_content, dict) and "hint" in parsed_content:
-                        return parsed_content["hint"]
+                    return parsed_content["hint"]
                 return content  # Fallback to raw content
             except json.JSONDecodeError:
                 # Clean up raw string if it looks like JSON but couldn't be parsed
@@ -178,83 +189,43 @@ class TabooGame:
 
 game = TabooGame()
 
-@app.route('/')
-def index():
-    game.logger.info("Route / called")
-    return render_template('index.html')
 
-@app.route('/game', methods=['POST'])
-def start_game():
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    game.logger.info("Route / called")
+    return templates.TemplateResponse("index.html", {"request": request})
+
+class GameConfig(BaseModel):
+    topic: str
+    difficulty: str
+    language: Optional[str] = "en"
+
+@app.post("/game")
+async def start_game(config: GameConfig):
     game.logger.info("Route /game called")
     try:
-        data = request.get_json()
-        game.logger.info(f"Request data: {data}")
-    except json.JSONDecodeError as e:
-        game.logger.error(f"JSON Decode Error: {e}")
-        return jsonify({"error": "Invalid JSON format"}), 400
-    
-    if not data:
-        game.logger.error("Request body is empty")
-        return jsonify({"error": "Request body is empty"}), 400
-
-    if not isinstance(data, dict):
-         game.logger.error(f"Request body is not a dictionary: {data}")
-         return jsonify({"error": "Request body must be a JSON object"}), 400
-
-    if not all(key in data for key in ['topic', 'difficulty']):
-         game.logger.error(f"Missing required fields in request data: {data}")
-         return jsonify({"error": "Missing required fields: topic, difficulty"}), 400
-
-    try:
-        config = game_config(
-            topic=data.get('topic'),
-            difficulty=data.get('difficulty'),
-            language=data.get('language', 'en')
-        )
-        taboo_properties = game.generate_taboo(config)
-        return jsonify(taboo_properties)
+        taboo_properties = game.generate_taboo(game_config(**config.dict()))
+        return taboo_properties
     except TabooGameException as e:
         game.logger.error(f"TabooGameException: {e}")
-        return jsonify({"error": str(e)}), 400
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         game.logger.error(f"Unexpected error: {e}")
-        return jsonify({"error": "An unexpected error occurred"}), 500
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
-@app.route('/hints', methods=['POST'])
-def get_hint():
+class HintRequest(BaseModel):
+    props: Dict
+    previous_guesses: Optional[List[wrong_guess]] = []
+
+@app.post("/hints")
+async def get_hint(data: HintRequest):
     game.logger.info("Route /hints called")
     try:
-        data = request.get_json()
-        game.logger.info(f"Request data: {data}")
-    except json.JSONDecodeError as e:
-        game.logger.error(f"JSON Decode Error: {e}")
-        return jsonify({"error": "Invalid JSON format"}), 400
-    
-    if not data:
-        game.logger.error("Request body is empty")
-        return jsonify({"error": "Request body is empty"}), 400
-
-    if not isinstance(data, dict):
-         game.logger.error(f"Request body is not a dictionary: {data}")
-         return jsonify({"error": "Request body must be a JSON object"}), 400
-
-    if 'props' not in data:
-        game.logger.error(f"Missing required field 'props' in request data: {data}")
-        return jsonify({"error": "Missing required field: props"}), 400
-
-    try:
-        props = data.get('props')
-        previous_guesses = data.get('previous_guesses', [])
-        previous_guesses = [wrong_guess(**guess) for guess in previous_guesses]
-        hint = game.generate_hint(props, previous_guesses)
-        return jsonify({"hint": hint})
+        hint = game.generate_hint(data.props, data.previous_guesses)
+        return {"hint": hint}
     except TabooGameException as e:
         game.logger.error(f"TabooGameException: {e}")
-        return jsonify({"error": str(e)}), 400
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         game.logger.error(f"Unexpected error: {e}")
-        return jsonify({"error": "An unexpected error occurred"}), 500
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")

@@ -1,4 +1,7 @@
-flask
+dataclasses
+fastapi
+pydantic
+typing
 openai
 python-dotenv
-gunicorn
+uvicorn
