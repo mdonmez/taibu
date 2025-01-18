@@ -77,7 +77,7 @@ The game logic is handled by the `TabooGame` class in `app.py` and operates in t
 
 ## Technology Stack
 
--   **Backend:** Flask (Python)
+-   **Backend:** FastAPI (Python)
 -   **Frontend:** JavaScript, HTML, CSS
 -   **AI Integration:** OpenAI API compatible service
 -   **Data Handling:** JSON for API communications
