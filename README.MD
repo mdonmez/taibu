@@ -1,5 +1,3 @@
-# taibu - AI Taboo Game
-
 <div align="center">
   <a href="https://github.com/mdonmez/taibu">
     <img src="static/favicon.svg" alt="Logo" width="70" height="70">
