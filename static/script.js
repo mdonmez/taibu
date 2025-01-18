@@ -4,6 +4,7 @@ const MAX_ATTEMPTS = 5;
 const ERROR_MESSAGE_DURATION = 3000;
 class TabooGame {
     constructor() {
+        this.guessInput = null;
         this.setupEventListeners();
         this.currentAttempt = 0;
         this.maxAttempts = MAX_ATTEMPTS;
@@ -17,8 +18,8 @@ class TabooGame {
 
     setupEventListeners() {
         document.getElementById('start-game').addEventListener('click', () => this.startGame());
-        const guessInput = document.getElementById('guess-input');
-        guessInput.addEventListener('keypress', (e) => {
+        this.guessInput = document.getElementById('guess-input');
+        this.guessInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.makeGuess(e.target.value);
         });
         document.getElementById('replay').addEventListener('click', () => this.resetGame());
@@ -113,6 +114,9 @@ class TabooGame {
                 hintBox.style.height = 'auto';
                 const newHeight = hintBox.scrollHeight;
                 hintBox.style.height = `${newHeight}px`;
+                const guessInput = document.getElementById('guess-input');
+                guessInput.value = '';
+                 requestAnimationFrame(() => guessInput.focus());
             } else {
                  this.showError('Unable to get new hint. Please try again.');
                  console.error('Error getting hint:', data.error);
@@ -128,7 +132,7 @@ class TabooGame {
      async makeGuess(guess) {
         if (!guess.trim()) return;
 
-        document.getElementById('guess-input').disabled = true;
+        this.guessInput.disabled = true;
         this.currentAttempt++;
 
         try {
@@ -154,7 +158,7 @@ class TabooGame {
              console.error('Failed to make guess:', error);
              this.showError('Failed to make guess: ' + error);
          } finally {
-             document.getElementById('guess-input').disabled = false;
+             this.guessInput.disabled = false;
          }
      }
 
