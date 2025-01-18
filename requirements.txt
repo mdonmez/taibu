@@ -1,7 +1,6 @@
-dataclasses
 fastapi
 pydantic
-typing
 openai
 python-dotenv
 uvicorn
+jinja2
