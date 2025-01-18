@@ -1,4 +1,4 @@
-const SIMILARITY_THRESHOLD = 0.8;
+const SIMILARITY_THRESHOLD = 0.7;
 const HINT_FADE_DURATION = 300;
 const MAX_ATTEMPTS = 5;
 const ERROR_MESSAGE_DURATION = 3000;
@@ -125,123 +125,71 @@ class TabooGame {
         }
     }
 
-    async makeGuess(guess) {
+     async makeGuess(guess) {
         if (!guess.trim()) return;
-    
 
         document.getElementById('guess-input').disabled = true;
+        this.currentAttempt++;
 
         try {
-             const similarity = this.checkSimilarity(guess, this.gameProps.word);
-             if (similarity > SIMILARITY_THRESHOLD) {
-                this.showResult(true);
+            const similarity = this.levenshteinDistance(guess, this.gameProps.word);
+            if (similarity >= SIMILARITY_THRESHOLD) {
+                 this.showResult(true);
              } else {
-                this.currentAttempt++;
-                const response = await fetch('/suggest', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        guess: guess,
-                        word: this.gameProps.word
-                    })
-                });
-                const data = await response.json();
-                if(response.ok) {
-                    if(data.suggestions && data.suggestions.length > 0) {
-                        this.showSuggestions(data.suggestions);
-                    } else {
-                          this.previousGuesses.push({
-                            predict: guess,
-                            sentence: document.getElementById('current-hint').textContent
-                        });
-                        if (this.currentAttempt === 1) {
-                            this.removeGuessesListPlaceholder();
-                        }
-                        this.updateWrongGuessesList();
-                         if (this.currentAttempt >= MAX_ATTEMPTS) {
-                            this.showResult(false);
-                        } else {
-                            await this.getNewHint();
-                        }
-                    }
-
-                } else {
-                      this.showError('Unable to get suggestions. Please try again.');
-                      console.error('Error getting suggestions:', data.error);
-                      this.previousGuesses.push({
-                            predict: guess,
-                            sentence: document.getElementById('current-hint').textContent
-                        });
-                        if (this.currentAttempt === 1) {
-                            this.removeGuessesListPlaceholder();
-                        }
-                        this.updateWrongGuessesList();
-                         if (this.currentAttempt >= MAX_ATTEMPTS) {
-                            this.showResult(false);
-                        } else {
-                            await this.getNewHint();
-                        }
-                }
-
-
-                }
-             } catch (error) {
-                 console.error('Failed to make guess:', error);
-                 this.showError('Failed to make guess: ' + error);
-             } finally {
-                 document.getElementById('guess-input').disabled = false;
+                 this.previousGuesses.push({
+                     predict: guess,
+                     sentence: document.getElementById('current-hint').textContent
+                 });
+                 if (this.currentAttempt === 1) {
+                     this.removeGuessesListPlaceholder();
+                 }
+                 this.updateWrongGuessesList();
+                 if (this.currentAttempt >= MAX_ATTEMPTS) {
+                     this.showResult(false);
+                 } else {
+                    await this.getNewHint();
+                 }
              }
-        }
-        
-        
-        showSuggestions(suggestions) {
-            if (suggestions && suggestions.length > 0) {
-                this.makeGuess(suggestions[0])
-            }
-        }
-    checkSimilarity(str1, str2) {
-        const str1Lower = str1.toLowerCase();
-        const str2Lower = str2.toLowerCase();
-        const edits = this.levenshteinDistance(str1Lower, str2Lower);
-        const maxLength = Math.max(str1Lower.length, str2Lower.length);
-        return 1 - (edits / maxLength);
-    }
+         } catch (error) {
+             console.error('Failed to make guess:', error);
+             this.showError('Failed to make guess: ' + error);
+         } finally {
+             document.getElementById('guess-input').disabled = false;
+         }
+     }
 
     levenshteinDistance(a, b) {
-        // base cases
         if (a.length === 0) return b.length;
         if (b.length === 0) return a.length;
 
         const matrix = [];
 
         // increment along the first column of each row
-        for (let i = 0; i <= b.length; i++) {
+        let i;
+        for (i = 0; i <= b.length; i++) {
             matrix[i] = [i];
         }
 
         // increment each column in the first row
-        for (let j = 0; j <= a.length; j++) {
+        let j;
+        for (j = 0; j <= a.length; j++) {
             matrix[0][j] = j;
         }
 
         // Fill in the rest of the matrix
-        for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
+        for (i = 1; i <= b.length; i++) {
+            for (j = 1; j <= a.length; j++) {
                 if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1]; // no cost
+                    matrix[i][j] = matrix[i - 1][j - 1];
                 } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1, // substitution
-                        matrix[i][j - 1] + 1,     // insertion
-                        matrix[i - 1][j] + 1      // deletion
-                    );
+                    matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, // substitution
+                        Math.min(matrix[i][j - 1] + 1, // insertion
+                            matrix[i - 1][j] + 1)); // deletion
                 }
             }
         }
 
-        return matrix[b.length][a.length];
+        return 1 - (matrix[b.length][a.length] / Math.max(a.length, b.length));
     }
 
     updateGameInfo(difficulty, topic) {
