@@ -17,13 +17,16 @@ An AI-powered intelligent Taboo game that creates card sets dynamically from cus
 - Multiple difficulty levels for varied challenge
 - Custom topic selection for personalized gaming experience
 - Maximum 5 attempts per word
+- Timer for each round
+- Guesses are checked for similarity, if they are close enough the game ends
 
 ## Usage
 - Select a topic and difficulty level
 - Click "Start Game" to receive your first hint
 - Type your guess and press Enter
 - Get new hints based on your previous guesses
-- Win by guessing the word within 5 attempts
+- Win by guessing the word within 5 attempts or by guessing a similar word
+- The game ends automatically if the timer runs out
 
 ## Operation Logic
 The game works in two main stages:
@@ -38,7 +41,7 @@ The game works in two main stages:
 - Each wrong guess triggers a new, more specific hint
 - Previous predictions are taken into account when generating new hints
 - Preventing the new hint from being the same as previous hints
-- The game ends after the correct guess or maximum attempts are reached
+- The game ends after the correct guess, a similar guess, the maximum attempts are reached or if the timer runs out
 
 ## Technology Stack
 - **Backend:** Flask (Python)
