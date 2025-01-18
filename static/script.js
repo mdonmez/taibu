@@ -9,7 +9,11 @@ class TabooGame {
         this.maxAttempts = MAX_ATTEMPTS;
         this.previousGuesses = [];
         this.initializeGuessesList();
+        this.timerInterval = null;
+        this.resetGame();
     }
+
+    
 
     setupEventListeners() {
         document.getElementById('start-game').addEventListener('click', () => this.startGame());
@@ -69,15 +73,19 @@ class TabooGame {
             const data = await response.json();
             if (response.ok) {
                 this.gameProps = data;
+                 this.gameProps.banned = data.banned;
                 this.switchScreen('game-screen');
                 this.updateGameInfo(difficulty, topic);
                 this.hideLoader();
                 await this.getNewHint();
+                this.startTimer(20);
             } else {
-                 this.showError('Error starting game: ' + data.error);
+                 this.showError('Unable to start game. Please try again later.');
+                 console.error('Error starting game:', data.error);
             }
         } catch (error) {
-             this.showError('Failed to start game: ' + error);
+             console.error('Failed to start game:', error);
+             this.showError('Failed to start game. Please check your connection and try again.');
         }
     }
 
@@ -105,9 +113,13 @@ class TabooGame {
                 hintBox.style.height = 'auto';
                 const newHeight = hintBox.scrollHeight;
                 hintBox.style.height = `${newHeight}px`;
+            } else {
+                 this.showError('Unable to get new hint. Please try again.');
+                 console.error('Error getting hint:', data.error);
             }
         } catch (error) {
-             this.showError('Failed to get hint: ' + error);
+            console.error('Failed to get hint:', error);
+            this.showError('Failed to get hint. Please check your connection and try again.');
         } finally {
             this.hideHintLoader();
         }
@@ -142,7 +154,8 @@ class TabooGame {
             }
             document.getElementById('guess-input').value = '';
         }  catch (error) {
-             this.showError('Failed to make guess: ' + error);
+            console.error('Failed to make guess:', error);
+            this.showError('Failed to make guess: ' + error);
         }
          finally {
             document.getElementById('guess-input').disabled = false;
@@ -206,33 +219,43 @@ class TabooGame {
 
     showResult(won) {
         const resultMessage = document.getElementById('result-message');
-        resultMessage.textContent = won ?
-            `you won! you guessed the word '${this.gameProps.word}' in ${this.currentAttempt} attempts` :
-            `you lose! you could not guess the correct word '${this.gameProps.word}'`;
-
-        const bannedWordsElement = document.getElementById('banned-words');
-        if (this.gameProps && this.gameProps.banned) {
-            const bannedWordsList = this.gameProps.banned.join(', ');
-            bannedWordsElement.textContent = `the banned words were:\n${bannedWordsList}`;
-        } else {
-            console.error('Banned words not found in game properties:', this.gameProps);
-            bannedWordsElement.textContent = 'Error loading banned words';
-        }
-
+        resultMessage.innerHTML = won ?
+            `you won! you guessed the word <span class="correct-word">${this.gameProps.word}</span> in ${this.currentAttempt} attempts` :
+            `you lose! you could not guess the correct word <span class="correct-word">${this.gameProps.word}</span>`;
+        resultMessage.className = won ? 'win-message' : 'lose-message';
+        
         this.switchScreen('result-screen');
+        const bannedWordsList = document.getElementById('banned-words-list');
+        bannedWordsList.innerHTML = '';
+        if (this.gameProps.banned) {
+          this.gameProps.banned.forEach(word => {
+                const wordElement = document.createElement('span');
+                wordElement.textContent = word;
+                wordElement.classList.add('banned-word');
+                bannedWordsList.appendChild(wordElement);
+            });
+        }
+        
+        if (won) {
+          this.clearTimer();
+        }
     }
+
+    generateRandomPosition(container, element) {
+      const containerRect = container.getBoundingClientRect();
+      const padding = 10;
+      return {
+          top: Math.random() * (containerRect.height - padding * 2) + padding,
+          left: Math.random() * (containerRect.width - padding * 2) + padding
+      };
+  }
+
 
     switchScreen(screenId) {
         document.querySelectorAll('.screen').forEach((screen) => {
-            if (screen.id === screenId) {
-                screen.classList.remove('hidden');
-                screen.style.transform = 'translateY(0)';
-                screen.style.opacity = '1';
-            } else {
-                screen.classList.add('hidden');
-                screen.style.transform = 'translateY(10px)';
-                screen.style.opacity = '0';
-            }
+            screen.classList.toggle('hidden', screen.id !== screenId);
+            screen.style.transform = screen.id === screenId ? 'translateY(0)' : 'translateY(10px)';
+            screen.style.opacity = screen.id === screenId ? '1' : '0';
         });
     }
 
@@ -241,6 +264,8 @@ class TabooGame {
         this.previousGuesses = [];
         this.switchScreen('setup-screen');
         this.initializeGuessesList();
+        this.clearTimer();
+        document.getElementById('timer-display').textContent = 20;
     }
 
     initializeGuessesList() {
@@ -278,6 +303,46 @@ class TabooGame {
         errorDiv.textContent = message;
         errorDiv.classList.remove('hidden');
         setTimeout(() => errorDiv.classList.add('hidden'), ERROR_MESSAGE_DURATION);
+    }
+
+    startTimer(duration) {
+        let timer = duration;
+        const timerDisplay = document.getElementById('timer-display');
+        timerDisplay.style.color = 'white';
+        timerDisplay.textContent = timer;
+
+        const tick = () => {
+            timerDisplay.textContent = timer;
+            timerDisplay.classList.add('timer-animation');
+            setTimeout(() => {
+                timerDisplay.classList.remove('timer-animation');
+            }, HINT_FADE_DURATION);
+            if (timer > 10) {
+                timerDisplay.style.color = 'white';
+            } else if (timer <= 10) {
+                timerDisplay.style.color = 'yellow';
+            }
+            if (timer <= 5) {
+                timerDisplay.style.color = 'red';
+            }
+
+            if (timer < 0) {
+                this.clearTimer();
+                this.showResult(false);
+                return;
+            }
+            timer--;
+        };
+        this.timerInterval = setInterval(tick, 1000);
+        tick();
+    }
+
+    clearTimer() {
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval);
+          clearTimeout(this.timerInterval);
+          this.timerInterval = null;
+        }
     }
 }
 

@@ -1,20 +1,21 @@
 :root {
-  --color-background: #0a0a0a;
-  --color-text: #E0E0E0;
-  --color-border: #222222;
-  --color-hover: #333333;
-  --color-secondary: #141414;
-  --color-gray: #999999;
-  --color-link: #d3d3d3;
-  --loader-width: 96px;
-  --loader-height: 4.8px;
+  --color-background: #050505;
+  --color-tertiary: #141414;
+  --color-text: #f0f0f0;
+  --color-border: #1a1a1a;
+  --color-hover: #2a2a2a;
+  --color-secondary: #0f0f0f;
+    --color-gray: #999999;
+    --color-link: #d3d3d3;
+    --loader-width: 96px;
+    --loader-height: 4.8px;
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Press Start 2P', monospace;
 }
 
 html {
@@ -33,7 +34,7 @@ body {
 
 .game-container {
     width: 90%;
-    max-width: 600px;
+    max-width: 800px;
     border: 1px solid var(--color-border);
     border-radius: 12px;
     padding: 2rem;
@@ -48,12 +49,14 @@ h1 {
     margin-bottom: 2rem;
     font-weight: 600;
     text-transform: lowercase;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 1rem;
 }
 
 .screen {
     width: 100%;
     opacity: 1;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 .hidden {
@@ -87,7 +90,8 @@ button {
 
 button:hover {
     background: var(--color-hover);
-    transform: translateY(-1px);
+    transform: translateY(-1px) scale(1.02);
+    transition: transform 0.2s ease;
 }
 
 button.unclickable {
@@ -98,17 +102,40 @@ button.unclickable {
     opacity: 0.6;
 }
 
-.game-info {
-    display: flex;
-    justify-content: space-between;
+#timer-display {
+    font-size: 2rem;
+    text-align: center;
     margin-bottom: 1rem;
-    padding: 1rem;
-    border: 1px solid var(--color-hover);
-    border-radius: 8px;
-    background: var(--color-border);
-    text-transform: lowercase;
+    font-weight: bold;
+    color: white;
+    transition: color 0.3s ease;
 }
 
+
+.game-info-block {
+    background: var(--color-border);
+    padding: 0.5rem;
+    border-radius: 8px;
+}
+
+#difficulty-block {
+   display: inline-block;
+   margin-right: auto;
+}
+
+#topic-block {
+   display: inline-block;
+   margin-left: auto;
+}
+
+.game-info-container {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  background: var(--color-tertiary);
+  padding: 0.5rem;
+  border-radius: 8px;
+}
 #hint-box {
     border: 1px solid var(--color-hover);
     border-radius: 8px;
@@ -141,13 +168,6 @@ button.unclickable {
     margin-top: 0.5rem;
 }
 
-#banned-words {
-    margin: 1rem 0;
-    padding: 1rem;
-    border: 1px solid var(--color-hover);
-    border-radius: 8px;
-    background: var(--color-border);
-}
 
 .placeholder {
     color: gray;
@@ -163,12 +183,43 @@ button.unclickable {
     display: none;
 }
 
-.screen {
-    transition: opacity 0.3s ease, transform 0.3s ease;
+.win-message {
+    color: green;
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-weight: bold;
 }
 
-.hidden {
-    transform: translateY(10px);
+.lose-message {
+    color: red;
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-weight: bold;
+}
+
+.correct-word {
+    font-size: 2.5rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.1);
+    display: inline-block;
+    margin: 0 0.2rem;
+}
+.timer-animation {
+    animation: timer-land 0.3s ease-in-out;
+}
+
+@keyframes timer-land {
+    0% {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 .footer {
@@ -216,8 +267,9 @@ button.unclickable {
     top: 0;
     left: 0;
     box-sizing: border-box;
-    animation: hitZak 0.8s linear infinite alternate;
+    animation: hitZak 0.6s linear infinite alternate;
     border-radius: 999px;
+    box-shadow: 0 0 4px rgba(255,255,255, 0.5);
 }
 
 @keyframes hitZak {
@@ -243,10 +295,11 @@ button.unclickable {
     body {
         padding-bottom: 80px; /* Increased padding for mobile */
     }
-    
+
     .game-container {
         width: 95%;
-        padding: 1rem;
+        max-width: 700px;
+        padding: 1.5rem;
         margin: 1rem auto;
     }
 
@@ -254,9 +307,55 @@ button.unclickable {
         flex-direction: column;
         gap: 0.5rem;
     }
-    
+
     select, input, button {
         padding: 0.8rem;
         font-size: 0.9rem;
     }
+}
+
+#result-screen {
+    position: relative;
+}
+
+#banned-words-container {
+    margin-top: 1rem;
+    border: 1px solid var(--color-hover);
+    border-radius: 8px;
+    padding: 1rem;
+    background: var(--color-border);
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+}
+
+.banned-words-title {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    text-transform: lowercase;
+    border-bottom: 1px solid var(--color-hover);
+    padding-bottom: 0.5rem;
+}
+
+#banned-words-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+}
+
+
+.banned-word {
+    background: var(--color-secondary);
+    border-radius: 999px;
+    padding: 0.3rem 0.5rem;
+    font-size: 1.1rem;
+    transition: transform 0.2s ease;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.banned-word:hover {
+    transform: scale(1.05);
 }
