@@ -316,6 +316,47 @@ button.unclickable {
 }
 
 @media screen and (max-width: 768px) {
+   body {
+       line-height: 1.5;
+       overflow-x: hidden;
+   }
+   .footer-content {
+       font-size: 0.8rem;
+   }
+}
+
+@media screen and (max-width: 480px) {
+    .game-container {
+        padding: 1rem;
+        margin: 0.8rem auto;
+    }
+    h1 {
+        font-size: 1.5rem;
+    }
+    select, input, button {
+        padding: 0.7rem;
+        font-size: 0.85rem;
+    }
+    #timer-display {
+        font-size: 1.7rem;
+    }
+   .game-info-container {
+       flex-direction: column;
+       gap: 0;
+   }
+   .game-info-block {
+        margin-bottom: 0.5rem;
+   }
+   #hint-box {
+       height: 15rem;
+       overflow-y: scroll;
+   }
+   #banned-words-container {
+       max-width: 95%;
+   }
+   #banned-words-list {
+       justify-content: flex-start;
+   }
     body {
         padding-bottom: 80px; /* Increased padding for mobile */
     }
